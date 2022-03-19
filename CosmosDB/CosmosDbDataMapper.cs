@@ -13,9 +13,9 @@ using TestThreading.RetryPolicy;
 namespace TestThreading.CosmosDB
 {
     /// <summary>
-    /// Base class for the Cosmos DB interface.
+    /// Cosmos DB interface.
     /// </summary>
-    public abstract class CosmosDbDataMapper
+    public class CosmosDbDataMapper
     {
         /// <summary>
         /// Lock for the data table management.
