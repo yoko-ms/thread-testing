@@ -36,7 +36,6 @@ namespace TestThreading.CosmosDB
                 shouldBeRetried = true;
             }
 
-            Console.WriteLine($"Cosmos DB request got throttled. The shouldBeRetried flag was set to {shouldBeRetried}. Original exception was {caughtException}");
             return shouldBeRetried;
         }
     }

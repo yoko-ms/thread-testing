@@ -4,6 +4,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading;
+
 using Newtonsoft.Json.Linq;
 
 namespace TestThreading.CosmosDB.TestRunners
@@ -11,12 +13,14 @@ namespace TestThreading.CosmosDB.TestRunners
     /// <summary>
     /// A <see cref="TenantMetadata"/> document handling test runner.
     /// </summary>
-    public class TenantMetadataReaderTask : TestRunnerBase
+    public class TestTenantMetadata : TestRunnerBase
     {
-        private const string TestName = "[TenantMetadataReaderTask]";
+        private const string TestName = "[TestTenantMetadata]";
 
-        public override void OnExecuteTest()
+        public override void OnExecuteTest(int repeatCount)
         {
+            Console.WriteLine($"{DateTime.Now.ToString("h:mm:ss.fff")} {TestName} Running {repeatCount}");
+
             string tenantDomainName_1 = "contoso-" + CosmosDbTestUtils.CreateIdForTesting();
             TenantMetadata tenantMetadata = new TenantMetadata
             {
@@ -24,54 +28,73 @@ namespace TestThreading.CosmosDB.TestRunners
                 InitialDomainHint = tenantDomainName_1
             };
 
-            CosmosDbTestUtils.CosmosDbDataMapper
-                .Value
-                .CreateOrUpdateDocAsync<TenantMetadata>(
-                    collectionName: CosmosDbConfiguration.TenantMetadataContainerName,
-                    data: tenantMetadata,
-                    partitionId: tenantMetadata.Id,
-                    documentId: null)
-                .Wait();
+            try
+            {
+                CosmosDbTestUtils.CosmosDbDataMapper
+                    .Value
+                    .CreateOrUpdateDocAsync<TenantMetadata>(
+                        collectionName: CosmosDbConfiguration.TenantMetadataContainerName,
+                        data: tenantMetadata,
+                        partitionId: tenantMetadata.Id,
+                        documentId: null)
+                    .Wait();
 
-            // Call GetObject method, since cache does not have it, it will retrieve from Cosmos DB, then back fill the cache
-            TenantMetadata objInCosmosDb = CosmosDbTestUtils.CosmosDbDataMapper.Value
-                .GetObject<TenantMetadata>(
+                // Call GetObject method, since cache does not have it, it will retrieve from Cosmos DB, then back fill the cache
+                TenantMetadata objInCosmosDb = CosmosDbTestUtils.CosmosDbDataMapper.Value
+                    .GetObject<TenantMetadata>(
+                        CosmosDbConfiguration.TenantMetadataContainerName,
+                        tenantMetadata.Id,
+                        tenantMetadata.Id)
+                    .DataObject;
+                if (objInCosmosDb == null)
+                {
+                    Interlocked.Increment(ref CosmosDbTestUtils.TestRunStatus.NumberOfFailures);
+                    throw new ResourceNotFoundException($"{TestName}: {tenantMetadata.Id} with GetObject() failed");
+                }
+
+                // Update the data in Cosmos DB -  Now the tenant metadata record in Cosmos DB has a setting
+                CreateOrUpdateTenantSetting(
+                    tenantMetadata.Id,
+                    "EmailTypeInputBox",
+                    "TEST-*-*-*",
+                    true);
+
+                // Call GetObjectWithEtag method to retrieve the record directly from Cosmos DB to verify the update is there
+                objInCosmosDb = CosmosDbTestUtils.CosmosDbDataMapper.Value
+                    .GetObjectWithEtag<TenantMetadata>(
+                        CosmosDbConfiguration.TenantMetadataContainerName,
+                        tenantMetadata.Id,
+                        tenantMetadata.Id)
+                    .DataObject;
+                if (objInCosmosDb == null)
+                {
+                    Interlocked.Increment(ref CosmosDbTestUtils.TestRunStatus.NumberOfFailures);
+                    throw new ResourceNotFoundException($"{TestName}: {tenantMetadata.Id} with GetObjectWithEtag failed");
+                }
+
+                if (objInCosmosDb.Settings == null)
+                {
+                    Interlocked.Increment(ref CosmosDbTestUtils.TestRunStatus.NumberOfFailures);
+                    throw new ResourceNotFoundException($"{TestName}: Document should have settings, but failed");
+                }
+
+                CosmosDbTestUtils.CosmosDbDataMapper.Value
+                       .DeleteDocAsync(CosmosDbConfiguration.TenantMetadataContainerName, tenantMetadata.Id, tenantMetadata.Id)
+                       .Wait();
+
+                CosmosDbTestUtils.ValidateDocumentNotExist<PolicyDocument>(
+                    TestName,
                     CosmosDbConfiguration.TenantMetadataContainerName,
                     tenantMetadata.Id,
-                    tenantMetadata.Id)
-                .DataObject;
-            if (objInCosmosDb == null)
+                    tenantMetadata.Id);
+            }
+            finally
             {
-                throw new ResourceNotFoundException($"{TestName}: {tenantMetadata.Id} with GetObject() failed");
+                CosmosDbTestUtils.CosmosDbDataMapper.Value
+                    .DeleteDocIfExists(CosmosDbConfiguration.TenantMetadataContainerName, tenantMetadata.Id, tenantMetadata.Id);
             }
 
-            // Update the data in Cosmos DB -  Now the tenant metadata record in Cosmos DB has a setting
-            CreateOrUpdateTenantSetting(
-                tenantMetadata.Id,
-                "EmailTypeInputBox",
-                "TEST-*-*-*",
-                true);
-
-            // Call GetObjectWithEtag method to retrieve the record directly from Cosmos DB to verify the update is there
-            objInCosmosDb = CosmosDbTestUtils.CosmosDbDataMapper.Value
-                .GetObjectWithEtag<TenantMetadata>(
-                    CosmosDbConfiguration.TenantMetadataContainerName,
-                    tenantMetadata.Id,
-                    tenantMetadata.Id)
-                .DataObject;
-            if (objInCosmosDb == null)
-            {
-                throw new ResourceNotFoundException($"{TestName}: {tenantMetadata.Id} with GetObjectWithEtag failed");
-            }
-
-            if (objInCosmosDb.Settings == null)
-            {
-                throw new ResourceNotFoundException($"{TestName}: Document should have settings, but failed");
-            }
-
-            CosmosDbTestUtils.CosmosDbDataMapper.Value
-                .DeleteDocAsync(CosmosDbConfiguration.TenantMetadataContainerName, tenantMetadata.Id, tenantMetadata.Id)
-                .Wait();
+            Console.WriteLine($"{DateTime.Now.ToString("h:mm:ss.fff")} {TestName} Done {repeatCount}");
         }
 
         /// <summary>

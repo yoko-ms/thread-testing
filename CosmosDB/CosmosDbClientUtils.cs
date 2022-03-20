@@ -6,6 +6,8 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 
+using TestThreading.CosmosDB.TestRunners;
+
 namespace TestThreading.CosmosDB
 {
     /// <summary>
@@ -39,6 +41,7 @@ namespace TestThreading.CosmosDB
                     }
 
                     // if we ran out of time, quit and throw operation canceled exception
+                    Interlocked.Increment(ref CosmosDbTestUtils.TestRunStatus.TimedoutCalls);
                     throw new OperationCanceledException();
                 }
                 catch (Exception ex)
@@ -69,6 +72,7 @@ namespace TestThreading.CosmosDB
                     if (!Task.Run(async () => await asyncFunc.Invoke(cts.Token)).Wait(maxRequestWaitTime))
                     {
                         // if we ran out of time, quit and throw operation canceled exception
+                        Interlocked.Increment(ref CosmosDbTestUtils.TestRunStatus.TimedoutCalls);
                         throw new OperationCanceledException();
                     }
                 }
@@ -117,6 +121,7 @@ namespace TestThreading.CosmosDB
                     }
 
                     // if we ran out of time, quit and throw operation canceled exception
+                    Interlocked.Increment(ref CosmosDbTestUtils.TestRunStatus.TimedoutCalls);
                     throw new OperationCanceledException();
                 }
                 catch (Exception ex)

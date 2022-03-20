@@ -5,15 +5,24 @@
 using System;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.Cosmos.Linq;
 using Newtonsoft.Json.Linq;
 
+using TestThreading.CosmosDB.TestRunners;
+
 namespace TestThreading.CosmosDB
 {
     public class CosmosDBClient : IDisposable
     {
+        private const int RequestTimeoutInSeconds = 4;
+        private const int RetryWaitTimeInSeconds = 1;
+        private const int MaxRetryAttempts = 3;
+        private const string ApplicationRegion = "West US";
+        private const string ClientConsistencyLevel = "Session";
+
         /// <summary>
         /// Document Db Session client
         /// </summary>
@@ -35,23 +44,19 @@ namespace TestThreading.CosmosDB
             CosmosClientOptions cosmosClientOptions = new CosmosClientOptions
             {
                 ConnectionMode = ConnectionMode.Direct,
-                RequestTimeout = TimeSpan.FromSeconds(4),
-                MaxRetryAttemptsOnRateLimitedRequests = 3,
-                MaxRetryWaitTimeOnRateLimitedRequests = TimeSpan.FromSeconds(1)
+                RequestTimeout = TimeSpan.FromSeconds(RequestTimeoutInSeconds),
+                MaxRetryAttemptsOnRateLimitedRequests = MaxRetryAttempts,
+                MaxRetryWaitTimeOnRateLimitedRequests = TimeSpan.FromSeconds(RetryWaitTimeInSeconds)
             };
 
-            cosmosClientOptions.PortReuseMode = PortReuseMode.PrivatePortPool;
-            cosmosClientOptions.IdleTcpConnectionTimeout = TimeSpan.FromMinutes(30);
-
             // Only primary region is passed in, use Cosmos DB client to generate the secondary regions sequence
-            cosmosClientOptions.ApplicationRegion = "West US";
+            cosmosClientOptions.ApplicationRegion = ApplicationRegion;
 
             cosmosClientOptions.ConsistencyLevel = ConsistencyLevel.Session;
 
             this.cosmosClient = new CosmosClient(
-                accountEndpoint: "https://localhost:8081",
-                authKeyOrResourceToken: "C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==",
-                clientOptions: cosmosClientOptions);
+                accountEndpoint: CosmosDbTestUtils.CosmosDbServiceEndpoint,
+                authKeyOrResourceToken: CosmosDbTestUtils.CosmosDbPrimaryKey);
         }
 
         /// <summary>
@@ -79,20 +84,6 @@ namespace TestThreading.CosmosDB
             T obj = (T)(dynamic)response.Resource;
 
             return new Tuple<T, CosmosDbRequestMetadata>(obj, requestMetadata);
-        }
-
-        public string PrimaryReadRegion
-        {
-            get
-            {
-                return String.IsNullOrEmpty(this.cosmosClient.ClientOptions.ApplicationRegion)
-                    ? this.cosmosClient.ClientOptions.ApplicationPreferredRegions[0] : this.cosmosClient.ClientOptions.ApplicationRegion;
-            }
-        }
-
-        public object GetCosmosDBClientInterface()
-        {
-            return this.cosmosClient;
         }
 
         public CosmosDbQuery<T> QueryDb<T>(

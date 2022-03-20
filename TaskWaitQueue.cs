@@ -14,6 +14,19 @@ namespace TestThreading
         private const long DefaultPeriod = 50;
 
         /// <summary>
+        /// Gets the instance of Task wait queue.
+        /// </summary>
+        private static Lazy<TaskWaitQueue> SingletonInstance = new Lazy<TaskWaitQueue>(() => new TaskWaitQueue(), true);
+
+        public static TaskWaitQueue Instance
+        {
+            get
+            {
+                return SingletonInstance.Value;
+            }
+        }
+
+        /// <summary>
         /// Timer object to execute.
         /// </summary>
         private Timer timer;
@@ -21,6 +34,10 @@ namespace TestThreading
         private SortedList<long, List<TaskWaitInfo>> WaitList = new SortedList<long, List<TaskWaitInfo>>();
 
         public bool HasData => (this.WaitList.Count > 0);
+
+        private TaskWaitQueue()
+        {
+        }
 
         /// <summary>
         /// Stop the timer.
@@ -55,8 +72,6 @@ namespace TestThreading
         {
             lock (lockObject)
             {
-                Console.WriteLine($"Enqueue ...{waitInfo.EndTimeTick}");
-
                 List<TaskWaitInfo> waitList;
                 if (this.WaitList.ContainsKey(waitInfo.EndTimeTick))
                 {

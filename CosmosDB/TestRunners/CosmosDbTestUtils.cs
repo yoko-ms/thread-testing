@@ -12,6 +12,21 @@ namespace TestThreading.CosmosDB.TestRunners
     public static class CosmosDbTestUtils
     {
         /// <summary>
+        /// Local CosmosDB URI
+        /// </summary>
+        public const string CosmosDbServiceEndpoint = "https://localhost:8081";
+
+        /// <summary>
+        /// Local CosmosDB emulator primary key.
+        /// </summary>
+        public const string CosmosDbPrimaryKey = "C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==";
+
+        /// <summary>
+        /// Event to signal the end of event.
+        /// </summary>
+        public static ManualResetEvent TestStopEvent = new ManualResetEvent(false);
+
+        /// <summary>
         /// A <see cref="ICosmosDbDataMapper"/> instance to use for Cosmos DB interface.
         /// </summary>
         public static Lazy<CosmosDbDataMapper> CosmosDbDataMapper
@@ -20,29 +35,23 @@ namespace TestThreading.CosmosDB.TestRunners
         /// <summary>
         /// Random number generator.
         /// </summary>
-        private static Random RandGenerator = new Random();
+        internal static Random RandGenerator = new Random();
 
         /// <summary>
-        /// Gets or sets the number of running task runners.
+        /// Current test running status.
         /// </summary>
-        private static int TaskRunnerCount = 0;
+        private static TestRunStatus testRunStatus = new TestRunStatus();
 
         /// <summary>
-        /// Increment the running task runner count.
+        /// Gets the current test run status information.
         /// </summary>
-        /// <returns>Return the increased number.</returns>
-        public static int IncrementTaskRunner()
+        /// <returns></returns>
+        public static TestRunStatus TestRunStatus
         {
-            return Interlocked.Increment(ref TaskRunnerCount);
-        }
-
-        /// <summary>
-        /// Decrement the running task runner count.
-        /// </summary>
-        /// <returns>Return the decremented number.</returns>
-        public static int DecrementTaskRunner()
-        {
-            return Interlocked.Decrement(ref TaskRunnerCount);
+            get
+            {
+                return testRunStatus;
+            }
         }
 
         public static void DelayTask(int minDelay = 500, int maxDelay = 5000)
@@ -99,12 +108,39 @@ namespace TestThreading.CosmosDB.TestRunners
         /// Remove given list of <see cref="TenantDetails"/> test data.
         /// </summary>
         /// <param name="collectionName">Collection name.</param>
-        /// <param name="tenantIdList">List of tenant Id to be removed.</param>
-        public static void ClearTenantDetailsAddedForTesting(string collectionName, List<string> tenantIdList)
+        /// <param name="tenantIdMap">Table of tenant Id to be removed.</param>
+        public static void ClearTenantDetailsAddedForTesting(string collectionName, Dictionary<string, Guid> tenantIdMap)
         {
-            tenantIdList
+            tenantIdMap
                 .ToList()
-                .ForEach((x) => CosmosDbDataMapper.Value.DeleteDocIfExists(collectionName, x, String.Empty));
+                .ForEach((x) => CosmosDbDataMapper.Value.DeleteDocIfExists(collectionName, x.Key, String.Empty));
+        }
+
+        public static void ValidateDocumentNotExist<T>(
+            string testName,
+            string collectionName,
+            string id,
+            string partitionKey)
+        {
+            bool isResourceNotFoundExceptionThrown = false;
+            string exceptionMessage = string.Empty;
+            try
+            {
+                CosmosDbDataMapper.Value.GetObjectWithEtag<T>(collectionName, id, partitionKey);
+            }
+            catch (ResourceNotFoundException ex)
+            {
+                isResourceNotFoundExceptionThrown = true;
+                exceptionMessage = ex.Message;
+            }
+
+            if (!isResourceNotFoundExceptionThrown
+                || !exceptionMessage.Contains(
+                        "document not found, collectionName: {collectionName}, documentId: {id}, partitionKey: {partitionKey}",
+                        StringComparison.OrdinalIgnoreCase))
+            {
+                throw new Exception($"{testName}: ValidateDocumentNotExist failed for document {id}");
+            }
         }
     }
 }

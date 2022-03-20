@@ -7,6 +7,8 @@ using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 
+using TestThreading.CosmosDB.TestRunners;
+
 namespace TestThreading.RetryPolicy
 {
     /// <summary>
@@ -229,7 +231,7 @@ namespace TestThreading.RetryPolicy
                 // if current execution time exceeds the threshold, as specified by the strategy, skip executing the operation and return an error
                 if (this.thresholdExceededStrategy.IsThresholdExceeded(this.ThresholdExceededInterval, totalElapsedTime.Elapsed))
                 {
-                    throw new Exception(
+                    throw new OperationCanceledException(
                         $"The current execution time {totalElapsedTime.Elapsed} exceeds the threshold {this.ThresholdExceededInterval} after {retryCount} retrys");
                 }
 
@@ -257,17 +259,18 @@ namespace TestThreading.RetryPolicy
                     int elapsedTimeInMilliseconds = (int)stopwatch.ElapsedMilliseconds;
                     if (!this.shouldRetry(retryCount, ex, out delay))
                     {
-                        throw ex;
+                        throw;
                     }
 
                     // This is to notify that retries has exceeded a certain count, but we would like more retries before the operation is aborted
                     if (this.RetryCountAfterWhichIncidentIsLogged.HasValue && retryCount > this.RetryCountAfterWhichIncidentIsLogged)
                     {
-                        throw new Exception($"The retry threshold of {this.RetryCountAfterWhichIncidentIsLogged} was exceeded", ex);
+                        throw new OperationCanceledException($"The retry threshold of {this.RetryCountAfterWhichIncidentIsLogged} was exceeded", ex);
                     }
 
                     // increase the retry count and check whether this is a transient error that needs retrying
                     retryCount++;
+                    Interlocked.Increment(ref CosmosDbTestUtils.TestRunStatus.NumberOfRetries);
                 }
 
                 // Perform an extra check in the delay interval. Should prevent from accidentally ending up with the value of -1 which will block a thread indefinitely.
@@ -322,7 +325,7 @@ namespace TestThreading.RetryPolicy
                 // if current execution time exceeds the threshold, as specified by the strategy, skip executing the operation and return an error
                 if (this.thresholdExceededStrategy.IsThresholdExceeded(this.ThresholdExceededInterval, totalElapsedTime.Elapsed))
                 {
-                    throw new Exception(
+                    throw new OperationCanceledException(
                         $"The current execution time {totalElapsedTime.Elapsed} exceeds the threshold {this.ThresholdExceededInterval} after {retryCount} retrys");
                 }
 
@@ -349,17 +352,18 @@ namespace TestThreading.RetryPolicy
 
                     if (!this.shouldRetry(retryCount, ex, out delay))
                     {
-                        throw ex;
+                        throw;
                     }
 
                     // This is to notify that retries has exceeded a certain count, but we would like more retries before the operation is aborted
                     if (this.RetryCountAfterWhichIncidentIsLogged.HasValue && retryCount > this.RetryCountAfterWhichIncidentIsLogged)
                     {
-                        throw new Exception($"The retry threshold of {this.RetryCountAfterWhichIncidentIsLogged} was exceeded", ex);
+                        throw new OperationCanceledException($"The retry threshold of {this.RetryCountAfterWhichIncidentIsLogged} was exceeded", ex);
                     }
 
                     // increase the retry count and check whether this is a transient error that needs retrying
                     retryCount++;
+                    Interlocked.Increment(ref CosmosDbTestUtils.TestRunStatus.NumberOfRetries);
                 }
 
                 // Perform an extra check in the delay interval. Should prevent from accidentally ending up with the value of -1 which will block a thread indefinitely.

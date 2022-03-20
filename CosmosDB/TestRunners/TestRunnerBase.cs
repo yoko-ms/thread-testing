@@ -5,6 +5,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace TestThreading.CosmosDB.TestRunners
@@ -20,21 +21,20 @@ namespace TestThreading.CosmosDB.TestRunners
         }
 
         /// <inheritdoc/>
-        Task ITestRunner.Run(int repeatCount)
+        Task ITestRunner.Run(EventWaitHandle stopEventHandler)
         {
             summaryList = new List<TestRunSummary>();
 
             return Task.Run(() =>
             {
-                CosmosDbTestUtils.IncrementTaskRunner();
-
-                for (int i = 0; i < repeatCount; i++)
+                int testCount = 1;
+                while (!stopEventHandler.WaitOne(10))
                 {
                     TestRunSummary summary = new TestRunSummary();
                     Stopwatch counter = Stopwatch.StartNew();
                     try
                     {
-                        OnExecuteTest();
+                        OnExecuteTest(testCount);
                         summary.Result = TestRunSummary.TestResult.SUCCEEDED;
                     }
                     catch (Exception ex)
@@ -46,14 +46,11 @@ namespace TestThreading.CosmosDB.TestRunners
                     counter.Stop();
                     summary.Duration = counter.ElapsedMilliseconds;
                     this.summaryList.Add(summary);
-
-                    CosmosDbTestUtils.DelayTask();
+                    ++testCount;
                 }
-
-                CosmosDbTestUtils.DecrementTaskRunner();
             });
         }
 
-        public abstract void OnExecuteTest();
+        public abstract void OnExecuteTest(int repeatCount);
     }
 }

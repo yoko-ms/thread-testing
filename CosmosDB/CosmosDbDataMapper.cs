@@ -8,6 +8,8 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Threading;
 using System.Threading.Tasks;
+
+using TestThreading.CosmosDB.TestRunners;
 using TestThreading.RetryPolicy;
 
 namespace TestThreading.CosmosDB
@@ -32,16 +34,6 @@ namespace TestThreading.CosmosDB
         /// DocumentClient per AppDomain for the lifetime of the application.
         /// </remarks>
         private static Lazy<CosmosDBClient> cosmosDbClient = new Lazy<CosmosDBClient>(() => new CosmosDBClient());
-
-        /// <summary>
-        /// The Cosmos DB account key or resource token to use to create the client.
-        /// </summary>
-        internal string AuthKeyOrResourceToken;
-
-        /// <summary>
-        /// The service endpoint to use to create the Cosmos DB client.
-        /// </summary>
-        internal string ServiceEndpoint;
 
         /// <summary>
         /// The Cosmos DB request transient failure (e.g. time out, 503) retry policy
@@ -190,10 +182,11 @@ namespace TestThreading.CosmosDB
             string partitionId,
             string eTag)
         {
-
             string updateDatedETag = string.Empty;
             this.CosmosDbRetryPolicy.ExecuteAction(o =>
             {
+                Interlocked.Increment(ref CosmosDbTestUtils.TestRunStatus.StartedCalls);
+
                 try
                 {
                     updateDatedETag = this.GetCosmosDbClientObject().ReplaceDocAsync(
@@ -209,9 +202,14 @@ namespace TestThreading.CosmosDB
                 catch (Exception ex)
                 {
                     HandleCosmosDbStorageException(ex, collectionName, documentId, partitionId);
+                    Interlocked.Increment(ref CosmosDbTestUtils.TestRunStatus.CancelledCalls);
 
                     // throw original exception.
                     throw;
+                }
+                finally
+                {
+                    Interlocked.Increment(ref CosmosDbTestUtils.TestRunStatus.CompletedCalls);
                 }
             });
 
@@ -227,6 +225,8 @@ namespace TestThreading.CosmosDB
             string eTag = string.Empty;
             this.CosmosDbRetryPolicy.ExecuteAction(o =>
             {
+                Interlocked.Increment(ref CosmosDbTestUtils.TestRunStatus.StartedCalls);
+
                 try
                 {
                     eTag = this.GetCosmosDbClientObject().CreateDoc(
@@ -238,9 +238,14 @@ namespace TestThreading.CosmosDB
                 catch (Exception ex)
                 {
                     HandleCosmosDbStorageException(ex, collectionName, documentId, partitionId);
+                    Interlocked.Increment(ref CosmosDbTestUtils.TestRunStatus.CancelledCalls);
 
                     // throw original exception.
                     throw;
+                }
+                finally
+                {
+                    Interlocked.Increment(ref CosmosDbTestUtils.TestRunStatus.CompletedCalls);
                 }
             });
 
@@ -258,6 +263,7 @@ namespace TestThreading.CosmosDB
                 a => this.CosmosDbRetryPolicy.ExecuteAction(
                     b =>
                     {
+                        Interlocked.Increment(ref CosmosDbTestUtils.TestRunStatus.StartedCalls);
                         CosmosDbRequestRetryState retryState = (CosmosDbRequestRetryState)b;
 
                         try
@@ -276,13 +282,19 @@ namespace TestThreading.CosmosDB
                         catch (Exception ex)
                         {
                             HandleCosmosDbStorageException(ex, collectionName, documentId, partitionKey);
+                            Interlocked.Increment(ref CosmosDbTestUtils.TestRunStatus.CancelledCalls);
 
                             // throw original exception.
                             throw;
                         }
+                        finally
+                        {
+                            Interlocked.Increment(ref CosmosDbTestUtils.TestRunStatus.CompletedCalls);
+                        }
                     },
                     a),
                 new CosmosDbRequestRetryState());
+
             return cosmosDataWithEtag;
         }
 
@@ -291,6 +303,8 @@ namespace TestThreading.CosmosDB
         {
             this.CosmosDbRetryPolicy.ExecuteAction(o =>
             {
+                Interlocked.Increment(ref CosmosDbTestUtils.TestRunStatus.StartedCalls);
+
                 try
                 {
                     this.GetCosmosDbClientObject().DeleteDoc(
@@ -302,9 +316,14 @@ namespace TestThreading.CosmosDB
                 catch (Exception ex)
                 {
                     HandleCosmosDbStorageException(ex, collectionName, String.Empty, partitionKey);
+                    Interlocked.Increment(ref CosmosDbTestUtils.TestRunStatus.CancelledCalls);
 
                     // throw original exception.
                     throw;
+                }
+                finally
+                {
+                    Interlocked.Increment(ref CosmosDbTestUtils.TestRunStatus.CompletedCalls);
                 }
             });
         }
@@ -465,6 +484,8 @@ namespace TestThreading.CosmosDB
                 int pageNumberCountCaptured = pageNumberCount++;
                 this.CosmosDbRetryPolicy.ExecuteAction((o) =>
                     {
+                        Interlocked.Increment(ref CosmosDbTestUtils.TestRunStatus.StartedCalls);
+
                         try
                         {
                             var feedResponse = documentQuery
@@ -472,11 +493,17 @@ namespace TestThreading.CosmosDB
                                 .ReadNextAsync(cancellationToken)
                                 .GetAwaiter()
                                 .GetResult();
+                            
                             resultList.AddRange(feedResponse.ToList());
                         }
                         catch (Exception ex)
                         {
                             CosmosDbStorageException.ProcessCosmosDbExceptionThrown(ex);
+                            Interlocked.Increment(ref CosmosDbTestUtils.TestRunStatus.CancelledCalls);
+                        }
+                        finally
+                        {
+                            Interlocked.Increment(ref CosmosDbTestUtils.TestRunStatus.CompletedCalls);
                         }
                     });
             }
@@ -499,6 +526,7 @@ namespace TestThreading.CosmosDB
             string partitionId,
             string documentId)
         {
+            Interlocked.Increment(ref CosmosDbTestUtils.TestRunStatus.StartedCalls);
             try
             {
                 await this.GetCosmosDbClientObject().CreateOrUpdateDocAsync(
@@ -510,9 +538,14 @@ namespace TestThreading.CosmosDB
             catch (Exception ex)
             {
                 HandleCosmosDbStorageException(ex, collectionName, documentId, partitionId);
+                Interlocked.Increment(ref CosmosDbTestUtils.TestRunStatus.CancelledCalls);
 
                 // throw original exception.
                 throw;
+            }
+            finally
+            {
+                Interlocked.Increment(ref CosmosDbTestUtils.TestRunStatus.CompletedCalls);
             }
         }
 
@@ -528,6 +561,7 @@ namespace TestThreading.CosmosDB
             string documentId,
             string partitionKey)
         {
+            Interlocked.Increment(ref CosmosDbTestUtils.TestRunStatus.StartedCalls);
             try
             {
                 await this.GetCosmosDbClientObject().DeleteDocAsync(
@@ -539,9 +573,14 @@ namespace TestThreading.CosmosDB
             catch (Exception ex)
             {
                 HandleCosmosDbStorageException(ex, collectionName, documentId, partitionKey);
+                Interlocked.Increment(ref CosmosDbTestUtils.TestRunStatus.CancelledCalls);
 
                 // throw original exception.
                 throw;
+            }
+            finally
+            {
+                Interlocked.Increment(ref CosmosDbTestUtils.TestRunStatus.CompletedCalls);
             }
         }
     }

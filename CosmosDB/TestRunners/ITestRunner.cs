@@ -3,6 +3,7 @@
 // ----------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace TestThreading.CosmosDB.TestRunners
@@ -15,9 +16,9 @@ namespace TestThreading.CosmosDB.TestRunners
         /// <summary>
         /// Execute the test.
         /// </summary>
-        /// <param name="repeatCount">Number of execution count.</param>
+        /// <param name="stopEventHandler">Event to signal the end of test.</param>
         /// <returns>A <see cref="Task"/> running the test.</returns>
-        Task Run(int repeatCount);
+        Task Run(EventWaitHandle stopEventHandler);
 
         /// <summary>
         /// Gets the list of test results.

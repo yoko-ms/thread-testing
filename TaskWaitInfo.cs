@@ -42,8 +42,6 @@ namespace TestThreading
 
         public void OnTimedOut(long curTick)
         {
-            Console.WriteLine($"Timedout with {this.requestedDelayTime} vs {(curTick - this.regTime)/TimeSpan.TicksPerMillisecond}, {(curTick - this.EndTimeTick)/TimeSpan.TicksPerMillisecond}.");
-
             if (this.TaskResetEvent != null)
             {
                 this.TaskResetEvent.Set();

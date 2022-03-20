@@ -8,7 +8,10 @@ using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
+
+using TestThreading.CosmosDB.TestRunners;
 using TestThreading.RetryPolicy;
 
 namespace TestThreading.CosmosDB
@@ -64,7 +67,6 @@ namespace TestThreading.CosmosDB
                 shouldBeRetried = RetriableMessages.Any(r => exception.Message.Contains(r));
             }
 
-            Console.WriteLine($"An exception was thrown when trying a Cosmos DB operation. The should be retried flag was set to {shouldBeRetried}. Original exception was {caughtException}");
             return shouldBeRetried;
         }
     }
